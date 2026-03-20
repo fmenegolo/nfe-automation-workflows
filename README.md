@@ -1,7 +1,7 @@
-# 🪢 NFe & Audio Automation Workflows (n8n)
+# 🪢 **NFe & Audio Automation Workflows (n8n)**
 Este repositório contém a lógica de orquestração e o "sistema nervoso" do ecossistema Menegolo Data Stack. Utilizando o n8n, os fluxos aqui presentes automatizam a captura de despesas via Telegram, processando desde imagens de notas fiscais (OCR/Scraping) até notas de voz (IA/NLP).
 
-## 🛰️ Dependência: NFe Scraper API (Engine de Visão)
+## 🛰️ **Dependência: NFe Scraper API (Engine de Visão)**
 O fluxo de processamento de imagem (02-image-processor) depende obrigatoriamente da **NFe Scraper API.**
 - **Deploy Automatizado:** Esta API possui um pipeline de CI/CD que realiza o build automático de imagens Docker.
 - **Imagem Oficial:** Disponível no GitHub Container Registry:
@@ -10,7 +10,7 @@ O fluxo de processamento de imagem (02-image-processor) depende obrigatoriamente
 - Você pode conferir o código-fonte ou clonar no GitHub: https://github.com/fmenegolo/nfe-scraper-api.
 - **Atenção: Sem esta API rodando na porta 8000/8001, o fluxo 02-image-processor retornará erro de conexão.**
 
-## 🏗️ Arquitetura Modular (Router & Workers)
+## 🏗️ **Arquitetura Modular (Router & Workers)**
 Para garantir alta disponibilidade e facilitar a manutenção, a automação foi dividida em três fluxos independentes que se comunicam via nós de Execute Workflow.
 
 ### 🚦 01-router.json
@@ -32,13 +32,13 @@ Para garantir alta disponibilidade e facilitar a manutenção, a automação foi
 - IA Generativa: Utiliza Google Gemini 2.5 Flash para transcrição e extração de entidades financeiras.
 - Processamento: Um motor em JavaScript limpa o texto (remoção de acentos/símbolos) e calcula o valor_saldo (positivo/negativo).
 - Contexto: A IA interpreta datas relativas ("ontem", "hoje") cruzando com o timestamp da mensagem original.
-#### 🛠️ Tecnologias Utilizadas
+#### 🛠️ **Tecnologias Utilizadas**
 Orquestrador: n8n (Self-hosted no CasaOS).
 IA: Google Gemini SDK (LangChain nodes).
 Mensageria: Telegram Bot API.
 Banco de Dados: PostgreSQL 17 (via API).
 Storage: Obsidian Vault (via Docker Volumes).
-#### 🚀 Como Importar para o seu n8n
+#### 🚀 **Como Importar para o seu n8n**
 A simples importação dos arquivos não é suficiente; os fluxos precisam interagir. Siga esta ordem:
 1. Importe os Workers primeiro:
     - Crie dois novos workflows e importe os arquivos 02-image-processor.json e 03-audio-processor.json.
@@ -53,4 +53,6 @@ A simples importação dos arquivos não é suficiente; os fluxos precisam inter
 5. Ative os Workflows:
     - Clique no botão Active em todos os 3 fluxos para que o Webhook do Telegram comece a escutar.
 ------
-Este projeto faz parte de uma infraestrutura moderna de dados focada em produtividade pessoal e automação financeira.
+### 🤝 **Créditos e Inspiração**
+Este projeto utiliza componentes e conceitos de automação inspirados em comunidades open-source:
+- O fluxo de processamento de áudio foi inicialmente adaptado a partir do trabalho de **Kizzy Terra**, sendo posteriormente refatorado para integração nativa com Obsidian e lógica de persistência em Modern Data Stack.

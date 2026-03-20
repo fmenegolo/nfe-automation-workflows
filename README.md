@@ -32,13 +32,14 @@ Para garantir alta disponibilidade e facilitar a manutenção, a automação foi
 - IA Generativa: Utiliza Google Gemini 2.5 Flash para transcrição e extração de entidades financeiras.
 - Processamento: Um motor em JavaScript limpa o texto (remoção de acentos/símbolos) e calcula o valor_saldo (positivo/negativo).
 - Contexto: A IA interpreta datas relativas ("ontem", "hoje") cruzando com o timestamp da mensagem original.
-#### 🛠️ **Tecnologias Utilizadas**
-Orquestrador: n8n (Self-hosted no CasaOS).
-IA: Google Gemini SDK (LangChain nodes).
-Mensageria: Telegram Bot API.
-Banco de Dados: PostgreSQL 17 (via API).
-Storage: Obsidian Vault (via Docker Volumes).
-#### 🚀 **Como Importar para o seu n8n**
+
+## 🛠️ **Tecnologias Utilizadas**
+- Orquestrador: n8n (Self-hosted no CasaOS).
+- IA: Google Gemini SDK (LangChain nodes).
+- Mensageria: Telegram Bot API.
+- Storage: Obsidian Vault (via Docker Volumes).
+
+## 🚀 **Como Importar para o seu n8n**
 A simples importação dos arquivos não é suficiente; os fluxos precisam interagir. Siga esta ordem:
 1. Importe os Workers primeiro:
     - Crie dois novos workflows e importe os arquivos 02-image-processor.json e 03-audio-processor.json.

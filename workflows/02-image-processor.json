@@ -27,7 +27,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://nfe-scraper-dev:8000/ingest/",
+        "url": "http://nfe-scraper:8000/ingest/",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {

@@ -1,0 +1,471 @@
+{
+  "name": "02-image-processor",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.photo.reverse()[0].file_id }}",
+        "additionalFields": {}
+      },
+      "id": "592b1435-0840-4563-9f21-3d76f4df6d6e",
+      "name": "Telegram GetFile (imagem)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        432
+      ],
+      "webhookId": "04a354ff-0ddc-4b2c-af52-360a7dde3f2f",
+      "alwaysOutputData": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "pA8h2sk2I57E68mE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://nfe-scraper-dev:8000/ingest/",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -400,
+        432
+      ],
+      "id": "194b0ebe-2124-41c7-9d75-0bf99a75ff84",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "conteudo_pai",
+        "binaryPropertyName": "arquivo_md",
+        "options": {
+          "fileName": "={{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_Alimentacao_{{ $('HTTP Request').item.json.payload.total_paid.toFixed(2).replace('.', '') }}_S.md"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        432
+      ],
+      "id": "a334e48f-b84e-4709-a498-3f0aec668604",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/data/obsidian/Financas/Lancamentos/{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_Alimentacao_{{ $('HTTP Request').item.json.payload.total_paid.toFixed(2).replace('.', '') }}_S.md",
+        "dataPropertyName": "arquivo_md",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        432
+      ],
+      "id": "2308b110-b9ce-4df9-bffc-df2aaab249f3",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "conteudo_filho",
+        "binaryPropertyName": "arquivo_md",
+        "options": {
+          "fileName": "={{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_{{ ($itemIndex + 1).toString().padStart(2, '0') }}_{{ $('Split Out').item.json.name.replace(/[^a-zA-Z0-9]/g, '_') }}.md"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        672
+      ],
+      "id": "55a33e82-ffb5-496f-9d94-80a28563ac32",
+      "name": "Convert to File2"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/data/obsidian/Financas/Lancamentos/Descritivo/{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_{{ ($itemIndex + 1).toString().padStart(2, '0') }}_{{ $('Split Out').item.json.name.replace(/[^a-zA-Z0-9]/g, '_') }}.md",
+        "dataPropertyName": "arquivo_md",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        672
+      ],
+      "id": "0257f9d9-f981-4f6e-8d56-40d9ee003c90",
+      "name": "Read/Write Files from Disk2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "payload.items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        672
+      ],
+      "id": "6a89ab4f-8018-4ef8-8a16-b93f1ef95f26",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        496,
+        528
+      ],
+      "id": "b646a259-150a-4cde-a10a-6583e3480272",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('When Executed by Another Workflow').item.json.message.chat.id }}",
+        "text": "={{ $('HTTP Request').item.json.payload.total_paid < 0 ? '💰 Renda' : '💸 Despesa' }} de Alimentação com {{ $('HTTP Request').item.json.payload.store_name }} no valor de R$ {{ $('HTTP Request').item.json.payload.total_paid.toFixed(2).replace('.', ',') }} registrada com sucesso!\n\n💳 Pago via: {{ $('HTTP Request').item.json.payload.payment_method.toLowerCase().includes('cartão de') ? $('HTTP Request').item.json.payload.payment_method.toLowerCase().substring(10) : $('HTTP Request').item.json.payload.payment_method.toLowerCase() }} em {{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0] }} ✅\n\n💎 Obsidian: OK",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        528
+      ],
+      "id": "3a012388-6994-45e6-bea1-2282763bbdb5",
+      "name": "Send a text message2",
+      "webhookId": "51b16629-2b52-47b2-835e-a9652134293c",
+      "credentials": {
+        "telegramApi": {
+          "id": "A3yL97a4XLc4cRlG",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03c88052-3b2e-42e8-8bcc-91af1ea943c7",
+              "name": "conteudo_pai",
+              "value": "=---\ndescricao: {{ $('HTTP Request').item.json.payload.store_name }}\ncategoria: Alimentação\ndata: {{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('-') }}\nvalor: {{ $('HTTP Request').item.json.payload.total_paid }}\nvalor_saldo: -{{ $('HTTP Request').item.json.payload.total_paid }}\nmeio_pagamento: {{ $('HTTP Request').item.json.payload.payment_method.toLowerCase().includes('cartão de') ? $('HTTP Request').item.json.payload.payment_method.toLowerCase().substring(10) : $('HTTP Request').item.json.payload.payment_method.toLowerCase() }}\nfluxo: Saída\ntags:\n  - \"#Finanças/Lançamento\"\nnfe_chave: \"{{ $('HTTP Request').item.json.chave }}\"\ncriado_em: {{ new Date().toLocaleString('pt-BR') }}\n---\n# Registro de Finanças {{ $('HTTP Request').item.json.payload.store_name }}\n\n## Itens da Nota\n{{ \n  $('HTTP Request').item.json.payload.items.map((item, index) => {\n    const data = $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('');\n    const hora = $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0, 4);\n    const pos = (index + 1).toString().padStart(2, '0');\n    const nomeLimpo = item.name.replace(/[^a-zA-Z0-9]/g, '_');\n    \n    // ESTE É O NOME DO ARQUIVO QUE O FILHO GEROU\n    const nomeArquivoFilho = `${data}_${hora}_${pos}_${nomeLimpo}`;\n    \n    return `- [[${nomeArquivoFilho}|${item.name}]]: R$ ${item.item_total.toFixed(2)}`;\n  }).join('\\n') \n}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -144,
+        432
+      ],
+      "id": "99cf4ddf-25e8-4416-9240-5906776d1f22",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03c88052-3b2e-42e8-8bcc-91af1ea943c7",
+              "name": "conteudo_filho",
+              "value": "=---\nitem: {{ $json.name }}\nquantidade: {{ $json.quantity }}\nunidade: {{ $json.unit }}\nvalor_unitario: {{ $json.unit_value }}\nvalor_total: {{ $json.item_total }}\ncompra_ref: \"[[{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_Mercado_{{ $('HTTP Request').item.json.payload.total_paid.toFixed(2).replace('.', '') }}_S]]\"\ntags:\n  - \"#Item\"\n---\n# {{ $json.name }}\n\n- **Qtd:** {{ $json.quantity }} {{ $json.unit }}\n- **Preço Unit:** R$ {{ $json.unit_value }}\n- **Total do Item:** R$ {{ $json.item_total }}\n\n---\nItem nº {{ $itemIndex + 1 }} da compra: [[{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[0].split('/').reverse().join('') }}_{{ $('HTTP Request').item.json.payload.issuance_date_time.split(' ')[1].replace(':', '').substring(0,4) }}_Alimentacao_{{ $('HTTP Request').item.json.payload.total_paid.toFixed(2).replace('.', '') }}_S]]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -144,
+        672
+      ],
+      "id": "f547be0e-7b17-4489-b817-f071830dad91",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -832,
+        432
+      ],
+      "id": "e1d730ce-1a20-42a9-9b09-a12bd4e671be",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "update_id": 573763447,
+          "message": {
+            "message_id": 16,
+            "from": {
+              "id": 1714006322,
+              "is_bot": false,
+              "first_name": "Fabricio",
+              "last_name": "Menegolo",
+              "username": "fmenegolo",
+              "language_code": "pt-br"
+            },
+            "chat": {
+              "id": 1714006322,
+              "first_name": "Fabricio",
+              "last_name": "Menegolo",
+              "username": "fmenegolo",
+              "type": "private"
+            },
+            "date": 1774019866,
+            "forward_origin": {
+              "type": "user",
+              "sender_user": {
+                "id": 1714006322,
+                "is_bot": false,
+                "first_name": "Fabricio",
+                "last_name": "Menegolo",
+                "username": "fmenegolo",
+                "language_code": "pt-br"
+              },
+              "date": 1772907630
+            },
+            "forward_from": {
+              "id": 1714006322,
+              "is_bot": false,
+              "first_name": "Fabricio",
+              "last_name": "Menegolo",
+              "username": "fmenegolo",
+              "language_code": "pt-br"
+            },
+            "forward_date": 1772907630,
+            "photo": [
+              {
+                "file_id": "AgACAgEAAxkBAAMKabyC2aJyXOH4oq_ZnBrhdOFgnQ4AArULaxtdumFFTHXbSss4PD4BAAMCAAN5AAM6BA",
+                "file_unique_id": "AQADtQtrG126YUV-",
+                "file_size": 133444,
+                "width": 720,
+                "height": 1280
+              },
+              {
+                "file_id": "AgACAgEAAxkBAAMKabyC2aJyXOH4oq_ZnBrhdOFgnQ4AArULaxtdumFFTHXbSss4PD4BAAMCAAN4AAM6BA",
+                "file_unique_id": "AQADtQtrG126YUV9",
+                "file_size": 75374,
+                "width": 450,
+                "height": 800
+              },
+              {
+                "file_id": "AgACAgEAAxkBAAMKabyC2aJyXOH4oq_ZnBrhdOFgnQ4AArULaxtdumFFTHXbSss4PD4BAAMCAANtAAM6BA",
+                "file_unique_id": "AQADtQtrG126YUVy",
+                "file_size": 18233,
+                "width": 180,
+                "height": 320
+              },
+              {
+                "file_id": "AgACAgEAAxkBAAMKabyC2aJyXOH4oq_ZnBrhdOFgnQ4AArULaxtdumFFTHXbSss4PD4BAAMCAANzAAM6BA",
+                "file_unique_id": "AQADtQtrG126YUV4",
+                "file_size": 1087,
+                "width": 51,
+                "height": 90
+              }
+            ]
+          }
+        },
+        "binary": {
+          "data": {
+            "mimeType": "image/jpeg",
+            "fileType": "image",
+            "fileExtension": "jpg",
+            "data": "filesystem-v2",
+            "fileName": "file_1.jpg",
+            "id": "filesystem-v2:workflows/0V6rOq5VQkMXSaEq/executions/temp/binary_data/4681dd6f-5648-4d0c-8bfd-e5689ce4eb34",
+            "fileSize": "75.4 kB",
+            "bytes": 75374
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram GetFile (imagem)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File2": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Telegram GetFile (imagem)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "ZmoZR16fLKp6vajl",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "e106409b-8cc8-4671-b8d0-97151fd12fee",
+  "meta": {
+    "instanceId": "e458d89e0fb8d37487b57b587f3fef3cfb1e7fafe0dcb945464e4d8f8e9790f8"
+  },
+  "id": "tMpbKni0glM5zrkF",
+  "tags": []
+}

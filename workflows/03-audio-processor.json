@@ -1,0 +1,263 @@
+{
+  "name": "03-audio-processor",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.voice.file_id }}",
+        "additionalFields": {}
+      },
+      "id": "968fda94-cde0-47d2-806b-eeb3948ab08d",
+      "name": "Telegram GetFile (áudio)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -32
+      ],
+      "webhookId": "71b8805a-0a55-4e3b-b3b3-64e83ac11a2e",
+      "alwaysOutputData": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "A3yL97a4XLc4cRlG",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=Você é um assistente financeiro que analisa gravações de voz em português do Brasil.\nSua tarefa é **transcrever o áudio** e **extrair os seguintes dados de uma despesa**:\n\n{\n  \"descricao\": \"\",\n  \"categoria\": \"\",\n  \"data\": \"\",\n  \"valor\": 0,\n  \"meio_pagamento\": \"\",\n  \"fluxo\": \"\"\n}\n\nRegras:\n- \"descricao\": descreva em poucas palavras a despesa mencionada (ex: \"almoço na padaria\", \"uber para o trabalho\", \"remédio na farmácia\").\n- \"categoria\": classifique em uma das opções: [\"Alimentação\", \"Transporte\", \"Saúde\", \"Cuidado Pessoal\", \"Moradia\", \"Lazer\", \"Presentes\", \"Educação\", \"Investimento\", \"Imposto\", \"Outros\", \"Salário\", \"Renda Extra\", \"Vale Alimentação\"].\n- \"data\": use o formato ISO (YYYY-MM-DD).  \n  - Se o áudio mencionar “hoje”, “ontem” ou um dia da semana, interprete em relação à **data da mensagem** (DataMensagem: {{ new Date($node['When Executed by Another Workflow'].json.message.date * 1000).toISOString().slice(0,10) }}).\n- \"valor\": número em reais (aceite expressões como “45 reais”, “R$ 23,50”, “vinte e cinco reais”).  \n  - Se o valor não for mencionado, coloque 0.\n- \"fluxo\": Classifique como \"Entrada\" se o dinheiro estiver entrando na conta (salário, venda, resgate de investimento) e \"Saída\" se estiver saindo (compras, pagamentos, aplicação em investimento).\nImportante:\n- Sempre responda **somente JSON válido**, sem texto extra, explicações ou comentários. \n- Não adicione \"```json\" no inicio comece direto em \"{\",  .\n- Não invente valores nem categorias — se não tiver certeza, use “Outros”.\n- Se o áudio mencionar a forma de pagamento, adicione também o campo meio_pagamento (ex: débito, crédito, pix, dinheiro, vale alimentação).\n- Se a forma de pagamento não for mencionado, coloque \"débito\"\n- Exemplo de saída:\n{\n  \"descricao\": \"almoço no restaurante\",\n  \"categoria\": \"Alimentação\",\n  \"data\": \"2025-10-28\",\n  \"valor\": 45.90,\n  \"fluxo\": \"Saída\"\n}\n",
+        "inputType": "binary",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -32
+      ],
+      "id": "e7e3b37d-7b7d-42a9-af15-f8d82e524072",
+      "name": "Analyze audio1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VXllhQDuyXH4KCWs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Captura e Limpeza do JSON original do Gemini\nconst raw = $input.first().json.content.parts[0].text;\nlet cleaned = raw.trim()\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```$/i, '')\n  .replace(/^\\uFEFF/, '');\n\nlet data;\ntry {\n  data = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error(\"Erro ao processar JSON do Gemini.\");\n}\n\n// 2. FUNÇÃO DE LIMPEZA (Remove acentos, espaços e caracteres especiais)\nfunction limparTexto(texto) {\n  return texto\n    .toString()\n    .normalize('NFD')               // Decompõe caracteres acentuados\n    .replace(/[\\u0300-\\u036f]/g, \"\") // Remove os acentos\n    .replace(/[^a-zA-Z0-9\\s-_]/g, \"\") // Remove símbolos (exceto - e _)\n    .trim()\n    .replace(/\\s+/g, '-');          // Troca espaços por hífens\n}\n\n// 3. Preparação dos Campos\nconst categoriaLimpa = limparTexto(data.categoria || 'Outros');\nconst fluxoOriginal = data.fluxo || 'Saída';\nconst fluxoLetra = fluxoOriginal.trim().toUpperCase().substring(0, 1); // 'E' ou 'S'\nconst valor = Number(data.valor) || 0;\nconst valor_saldo = fluxoLetra === 'S' ? -Math.abs(valor) : Math.abs(valor);\n\n// 4. Data e Hora\nconst fuso = 'America/Sao_Paulo';\nconst agora = new Date();\nconst criadoEm = agora.toLocaleString('pt-BR', { timeZone: fuso });\n\nconst dataRef = data.data || agora.toISOString().slice(0, 10);\nconst dataLimpa = dataRef.replace(/-/g, '');\nconst horaLimpa = new Date().toLocaleTimeString('pt-BR', {\n  timeZone: 'America/Sao_Paulo',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: false\n}).replace(':', '');\n\n// 5. Construção do Nome do Arquivo e Caminho (Tudo Limpo)\nconst valorParaNome = valor.toFixed(2).replace('.', '-');\nconst nomeArquivo = `${dataLimpa}_${horaLimpa}_${categoriaLimpa}_${valorParaNome}_${fluxoLetra}.md`;\n\n// IMPORTANTE: Use o caminho que o n8n enxerga dentro do container\nconst PATH_BASE = \"/data/obsidian/Financas/Lancamentos\";\nconst fullPath = `${PATH_BASE}/${nomeArquivo}`.trim();\n\n// 6. Conteúdo para o Obsidian (Aqui pode ter acentos e espaços normal)\nconst conteudoObsidian = `---\ndescricao: \"${data.descricao || ''}\"\ncategoria: \"${data.categoria || 'Outros'}\"\ndata: ${dataRef}\nvalor: ${valor}\nvalor_saldo: ${valor_saldo}\nmeio_pagamento: \"${data.meio_pagamento || 'Não informado'}\"\nfluxo: \"${fluxoOriginal}\"\ntags: [Finanças/Lançamento]\ncriado_em: ${criadoEm}\n---\n# Registro de Finanças\n${data.descricao || ''}`;\n\nreturn [{\n  json: {\n    nome_arquivo: nomeArquivo,\n    caminho_completo: fullPath,\n    conteudo: conteudoObsidian,\n\n    // Dados para o Telegram (o que você quer na mensagem)\n    valor: valor,\n    data: dataRef,\n    descricao: data.descricao || '',\n    categoria: data.categoria || 'Outros',\n    fluxo: fluxoOriginal,\n    meio_pagamento: data.meio_pagamento || 'Não informado'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        208
+      ],
+      "id": "fb9afddb-9b23-4243-b654-98c658163880",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $('Code in JavaScript2').item.json.caminho_completo }}",
+        "dataPropertyName": "arquivo_md",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        208
+      ],
+      "id": "af664059-3a03-4081-a9fe-ebc0f6b826c0",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "conteudo",
+        "binaryPropertyName": "arquivo_md",
+        "options": {
+          "fileName": "={{ $json.nome_arquivo }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        208
+      ],
+      "id": "7dafc1b8-16c4-4335-ba4c-b7f5a3eb8435",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('When Executed by Another Workflow').item.json.message.chat.id }}",
+        "text": "={{ $('Code in JavaScript2').item.json.fluxo == 'Entrada' ? '💰 Renda' : '💸 Despesa' }} de {{ $('Code in JavaScript2').item.json.categoria }} com {{ $('Code in JavaScript2').item.json.descricao }} no valor de R$ {{ $('Code in JavaScript2').item.json.valor.toFixed(2).replace('.', ',') }} registrada com sucesso!{{ $('Code in JavaScript2').item.json.meio_pagamento != 'Não informado' ? '\\n💳 Pago via: ' + $('Code in JavaScript2').item.json.meio_pagamento : '' }} em {{ $('Code in JavaScript2').item.json.data }}✅\n💎 Obsidian: OK",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        496,
+        208
+      ],
+      "id": "d4e1e239-72b4-4ca3-8398-2e18be37c861",
+      "name": "Send a text message1",
+      "webhookId": "2009a748-814e-48ab-8340-23c7d6a462d4",
+      "credentials": {
+        "telegramApi": {
+          "id": "A3yL97a4XLc4cRlG",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -576,
+        -32
+      ],
+      "id": "565dbbd2-f839-4f5b-adb5-e778f4b5bc2d",
+      "name": "When Executed by Another Workflow"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "update_id": 573763438,
+          "message": {
+            "message_id": 4,
+            "from": {
+              "id": 1714006322,
+              "is_bot": false,
+              "first_name": "Fabricio",
+              "last_name": "Menegolo",
+              "username": "fmenegolo",
+              "language_code": "pt-br"
+            },
+            "chat": {
+              "id": 1714006322,
+              "first_name": "Fabricio",
+              "last_name": "Menegolo",
+              "username": "fmenegolo",
+              "type": "private"
+            },
+            "date": 1773959426,
+            "voice": {
+              "duration": 6,
+              "mime_type": "audio/ogg",
+              "file_id": "AwACAgEAAxkBAAMEabx5Ajo8m4SUTPs8x8HUTutR1RAAAooIAAJgPOhFqeutQ03ZiRw6BA",
+              "file_unique_id": "AgADiggAAmA86EU",
+              "file_size": 132712
+            }
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram GetFile (áudio)": {
+      "main": [
+        [
+          {
+            "node": "Analyze audio1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze audio1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Telegram GetFile (áudio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "ZmoZR16fLKp6vajl",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "7e3b2358-d9f2-4630-a60d-8dea9f1a85d4",
+  "meta": {
+    "instanceId": "e458d89e0fb8d37487b57b587f3fef3cfb1e7fafe0dcb945464e4d8f8e9790f8"
+  },
+  "id": "YNl9CzDbaLR2TEWO",
+  "tags": []
+}
